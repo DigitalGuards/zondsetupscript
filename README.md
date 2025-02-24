@@ -39,7 +39,7 @@ wsl -d Ubuntu
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/theQRL/zondsetupscript.git
+git clone https://github.com/DigitalGuards/zondsetupscript.git
 cd zondsetupscript
 ```
 
