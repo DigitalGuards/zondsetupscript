@@ -237,10 +237,15 @@ case $OS_TYPE in
         print_windows_instructions
         ;;
 esac
-
 green_echo "[+] Setup complete!"
 green_echo "[+] To add pre-mined coins or fund accounts at genesis:"
 green_echo "    1. Edit qrysm/scripts/local_testnet/network_params.yaml!"
 green_echo "    2. Add your Zond address under prefunded_accounts"
 green_echo "    3. Stop/Start the network using the qrysm/scripts/local_testnet/(stop/start)_local_testnet.sh scripts"
 green_echo "    4. Restart the network using the qrysm/scripts/local_testnet/start_local_testnet.sh script with -b false flag to avoid rebuilding qrysm"
+green_echo ""
+green_echo "[+] To view all running services:"
+green_echo "    kurtosis enclave inspect local-testnet"
+green_echo ""
+green_echo "[+] To view the logs:"
+green_echo "    kurtosis service logs -f local-testnet or $SERVICE_NAME"
