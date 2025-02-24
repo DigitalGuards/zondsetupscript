@@ -138,6 +138,7 @@ install_prerequisites_macos() {
 setup_local_testnet() {
     green_echo "[+] Setting up local testnet..."
     cd testnetv1
+
     # Clone qrysm repository
     if [ ! -d "qrysm" ]; then
         git clone https://github.com/theQRL/qrysm -b dev
@@ -149,12 +150,70 @@ setup_local_testnet() {
         echo '7.5.0' > .bazelversion
     fi
 
-    # Start local testnet
-    bash ./scripts/local_testnet/start_local_testnet.sh
+    # Clean up any existing bazel symlinks and directories
+    green_echo "[+] Cleaning up bazel environment..."
+    rm -f bazel-bin bazel-out bazel-testlogs bazel-qrysm
+    sudo rm -rf "$HOME/.cache/bazel/_bazel_$USER"
+
+    # Fix bazel permissions and setup directories
+    green_echo "[+] Setting up bazel environment..."
+    mkdir -p "$HOME/.cache/bazel"
+    sudo chown -R $USER:$USER "$HOME/.cache/bazel"
+    sudo chown -R $USER:$USER .
+
+    # Build and start local testnet with error checking
+    green_echo "[+] Building and starting local testnet..."
+    if ! bash ./scripts/local_testnet/start_local_testnet.sh; then
+        green_echo "[!] Error: Failed to start local testnet"
+        green_echo "[!] Checking bazel output..."
+        
+        # Try to locate the actual tarball
+        TARBALL_PATH=$(find $HOME/.cache/bazel -name "tarball.tar" 2>/dev/null | grep "beacon-chain/oci_image_tarball" || true)
+        if [ -n "$TARBALL_PATH" ]; then
+            green_echo "[+] Found tarball at: $TARBALL_PATH"
+            # Create the target directory and copy the file
+            mkdir -p bazel-bin/cmd/beacon-chain/oci_image_tarball/
+            cp "$TARBALL_PATH" bazel-bin/cmd/beacon-chain/oci_image_tarball/
+            
+            green_echo "[+] Retrying local testnet startup..."
+            if ! bash ./scripts/local_testnet/start_local_testnet.sh; then
+                green_echo "[!] Error: Local testnet startup failed again"
+                green_echo "[!] Please check the following:"
+                green_echo "    1. Bazel cache: ls -la $HOME/.cache/bazel"
+                green_echo "    2. Docker status: docker ps"
+                green_echo "    3. Docker logs: docker logs <container_id>"
+                exit 1
+            fi
+        else
+            green_echo "[!] Error: Could not find built tarball"
+            green_echo "[!] Bazel output directories:"
+            find $HOME/.cache/bazel -type d -name "oci_image_tarball" 2>/dev/null || true
+            exit 1
+        fi
+    fi
+
+    # Verify containers are running
+    if [ "$(docker ps -q)" == "" ]; then
+        green_echo "[!] Error: No Docker containers are running"
+        green_echo "[!] Checking Docker logs..."
+        docker logs $(docker ps -a -q | head -n1) 2>/dev/null || true
+        exit 1
+    fi
 
     green_echo "[+] Local testnet setup completed"
-    green_echo "[+] To check mapped ports, use: docker ps --format '{{.Ports}}' | grep 8545 | sed 's/0.0.0.0://g'"
-    green_echo "[+] To test the network, use: curl http://127.0.0.1:MAPPED_PORT/ -X POST -H \"Content-Type: application/json\" --data '{\"method\":\"zond_getBlockByNumber\",\"params\":[\"latest\", false],\"id\":1,\"jsonrpc\":\"2.0\"}' | jq -e"
+    green_echo "[+] Running containers:"
+    docker ps
+    
+    # Get the actual mapped port
+    local PORT=$(docker ps --format '{{.Ports}}' | grep 8545 | sed 's/0.0.0.0://g' | cut -d'-' -f1)
+    if [ -n "$PORT" ]; then
+        green_echo "[+] Found mapped port: $PORT"
+        green_echo "[+] To test the network, use:"
+        green_echo "    curl http://127.0.0.1:$PORT/ -X POST -H \"Content-Type: application/json\" \\"
+        green_echo "      --data '{\"method\":\"zond_getBlockByNumber\",\"params\":[\"latest\", false],\"id\":1,\"jsonrpc\":\"2.0\"}' | jq -e"
+    else
+        green_echo "[!] Warning: Could not find mapped port for 8545"
+    fi
 
     # Return to original directory
     cd ../..
