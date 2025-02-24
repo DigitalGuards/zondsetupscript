@@ -96,6 +96,20 @@ install_prerequisites_ubuntu() {
     sudo apt update
     sudo apt-get install -y bazel-6.3.2
 
+    # Create bazel symlink if it doesn't exist
+    if ! command -v bazel &>/dev/null; then
+        green_echo "[+] Creating bazel symlink..."
+        sudo ln -sf /usr/bin/bazel-6.3.2 /usr/bin/bazel
+    fi
+
+    # Verify bazel installation
+    if ! command -v bazel &>/dev/null; then
+        green_echo "[!] Error: Bazel installation failed. Please install manually:"
+        green_echo "    sudo apt install bazel-6.3.2"
+        green_echo "    sudo ln -s /usr/bin/bazel-6.3.2 /usr/bin/bazel"
+        exit 1
+    fi
+
     # Install Kurtosis
     echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
     sudo apt update
