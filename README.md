@@ -1,99 +1,131 @@
-# Zond Setup Script
+# Zond Testnet #BUIDL Preview Setup
 
-A comprehensive setup script for running the QRL's Zond Execution Engine and Qrysm Consensus Engine. This script automates the installation and configuration process, making it easy to get started with running a Zond node.
+This repository contains setup scripts for the Zond Testnet #BUIDL Preview. The script automatically detects your operating system and installs all necessary prerequisites for running a local Zond testnet.
 
-## Features
+## Supported Operating Systems
 
-- Automated installation of all required dependencies
-- Support for multiple process managers:
-  - Screen (traditional terminal multiplexer)
-  - Tmux (modern terminal multiplexer)
-  - PM2 (Node.js process manager with monitoring)
-- Automatic Go version management using gobrew
-- Proper logging configuration
-- Clean setup with automatic cleanup of existing installations
+- Ubuntu 22.04 and 24.04
+- macOS (with Apple Silicon or Intel)
+- Windows (via WSL with Ubuntu 22.04/24.04)
 
 ## Prerequisites
 
-- Ubuntu/Debian-based Linux system
-- Bash shell (not compatible with zsh)
-- Internet connection
+### For Windows Users
+1. Install WSL:
+```powershell
+wsl --install
+```
+2. Restart your system after WSL installation
+3. Install Ubuntu:
+```powershell
+wsl --install Ubuntu-22.04
+# or
+wsl --install Ubuntu-24.04
+```
+4. Start Ubuntu:
+```powershell
+wsl -d Ubuntu
+```
+
+### For macOS Users
+- Homebrew should be installed
+- Terminal access
+
+### For Ubuntu Users
+- Terminal access
 - Sudo privileges
 
 ## Installation
 
 1. Clone this repository:
-   ```bash
-   git clone https://github.com/theQRL/zond_setupscript.git
-   cd zond_setupscript
-   ```
+```bash
+git clone https://github.com/theQRL/zondsetupscript.git
+cd zondsetupscript
+```
 
 2. Make the script executable:
-   ```bash
-   chmod +x zondsetup.sh
-   ```
+```bash
+chmod +x testnetv1/zondsetup.sh
+```
 
-3. Run the script:
-   ```bash
-   bash zondsetup.sh
-   ```
+3. Run the setup script:
+```bash
+./testnetv1/zondsetup.sh
+```
 
-## What the Script Does
+The script will:
+- Detect your operating system
+- Install required prerequisites:
+  - Docker
+  - Bazel (v6.3.2 for Ubuntu, v7.5.0 for macOS)
+  - Kurtosis
+  - Other necessary tools
+- Clone and set up the Qrysm repository
+- Start the local testnet
 
-1. Installs required packages (build-essential, screen/tmux, curl, wget, git)
-2. Sets up gobrew for Go version management
-3. Installs and configures Node.js and PM2 (if selected as process manager)
-4. Clones and builds the latest versions of:
-   - [go-zond](https://github.com/theQRL/go-zond) (Execution Engine)
-   - [qrysm](https://github.com/theQRL/qrysm) (Consensus Engine)
-5. Downloads necessary configuration files
-6. Launches both engines using your chosen process manager
+## Post-Installation
 
-## Process Manager Options
+### Testing the Network
+To test if the network is running properly:
 
-The script allows you to choose between three process managers:
+1. Find the mapped port:
+```bash
+docker ps --format '{{.Ports}}' | grep 8545 | sed 's/0.0.0.0://g'
+```
 
-1. **Screen**
-   - Traditional terminal multiplexer
-   - Simple and lightweight
-   - Available by default on most systems
+2. Test the network (replace MAPPED_PORT with the port number from step 1):
+```bash
+curl http://127.0.0.1:MAPPED_PORT/ \
+  -X POST \
+  -H "Content-Type: application/json" \
+  --data '{"method":"zond_getBlockByNumber","params":["latest", false],"id":1,"jsonrpc":"2.0"}' | jq -e
+```
 
-2. **Tmux**
-   - Modern terminal multiplexer
-   - Better session management
-   - Split panes and windows
+### Adding Pre-mined Coins
+To add pre-mined coins or fund accounts at genesis:
 
-3. **PM2**
-   - Process manager for Node.js
-   - Built-in monitoring and logs
-   - Auto-restart on failure
+1. Edit the network parameters:
+```bash
+nano qrysm/scripts/local_testnet/network_params.yaml
+```
 
-## Logging
+2. Add your Zond address under `prefunded_accounts`
 
-The script configures logging for both engines:
-- Zond logs: `gozond.log`
-- Qrysm logs: `crysm.log`
+3. Restart the network:
+```bash
+bash ./scripts/local_testnet/start_local_testnet.sh
+```
+
+### Checking Account Balance
+To check the balance of a pre-funded account (replace MAPPED_PORT and YOUR_ADDRESS):
+```bash
+curl -H "Content-Type: application/json" \
+  -X POST localhost:MAPPED_PORT \
+  --data '{"jsonrpc":"2.0","method":"zond_getBalance","params":["YOUR_ADDRESS", "latest"],"id":1}'
+```
 
 ## Troubleshooting
 
-If you encounter issues:
+### Docker Permission Issues
+If you encounter Docker permission issues:
 
-1. Check the log files for errors
-2. Ensure all prerequisites are met
-3. Try cleaning up the existing installation:
-   ```bash
-   rm -rf ~/theQRL
-   ```
-4. Make sure your system has enough resources (CPU, RAM, storage)
+1. Log out and log back in, or restart your system
+2. For WSL users, run:
+```powershell
+wsl --shutdown
+```
+Then restart WSL.
 
-## Contributing
+### Bazel Version Issues
+- Ubuntu: Make sure you're using Bazel 6.3.2
+- macOS: Make sure you're using Bazel 7.5.0
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## Support
 
-## Links
-
-- [go-zond Repository](https://github.com/theQRL/go-zond)
-- [qrysm Repository](https://github.com/theQRL/qrysm)
+For issues and support:
+- Open an issue in this repository
+- Join the QRL Discord server
+- Visit the QRL Forum
 
 ## License
 
