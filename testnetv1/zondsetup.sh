@@ -182,6 +182,33 @@ setup_local_testnet() {
         echo '7.5.0' > .bazelversion
     fi
 
+    # Prompt to edit network parameters
+    green_echo "[+] Before starting the build, you may want to edit the network parameters"
+    green_echo "[+] This includes setting up pre-funded accounts and other network configurations"
+    echo
+    read -p "Would you like to edit network parameters now? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        if command -v nano &>/dev/null; then
+            nano scripts/local_testnet/network_params.yaml
+        elif command -v vim &>/dev/null; then
+            vim scripts/local_testnet/network_params.yaml
+        else
+            green_echo "[!] No editor found. Installing nano..."
+            sudo apt-get install -y nano
+            nano scripts/local_testnet/network_params.yaml
+        fi
+        
+        # Confirm to proceed
+        echo
+        read -p "Ready to start the build? (y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            green_echo "[!] Build cancelled by user"
+            exit 1
+        fi
+    fi
+
     # Let bazel handle its own workspace
     green_echo "[+] Building and starting local testnet..."
     

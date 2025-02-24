@@ -67,8 +67,27 @@ The script will:
   - Bazel (v6.3.2 for Ubuntu, v7.5.0 for macOS)
   - Kurtosis
   - Other necessary tools
-- Clone and set up the Qrysm repository
-- Start the local testnet
+- Clone the Qrysm repository
+- Prompt to edit network parameters (pre-funded accounts, etc.)
+- Start the local testnet build after configuration
+
+### Network Configuration
+
+During setup, you'll be prompted to edit the network parameters file. This is where you can:
+- Add pre-funded accounts
+- Configure network parameters
+- Set up initial balances
+
+The configuration file is located at:
+```bash
+qrysm/scripts/local_testnet/network_params.yaml
+```
+
+You can also edit this file later and restart the network with:
+```bash
+cd qrysm
+bash ./scripts/local_testnet/start_local_testnet.sh -b false
+```
 
 ### Running on Small Servers
 
