@@ -150,46 +150,19 @@ setup_local_testnet() {
         echo '7.5.0' > .bazelversion
     fi
 
-    # Clean up any existing bazel symlinks and directories
-    green_echo "[+] Cleaning up bazel environment..."
-    rm -f bazel-bin bazel-out bazel-testlogs bazel-qrysm
-    sudo rm -rf "$HOME/.cache/bazel/_bazel_$USER"
-
-    # Fix bazel permissions and setup directories
-    green_echo "[+] Setting up bazel environment..."
-    mkdir -p "$HOME/.cache/bazel"
-    sudo chown -R $USER:$USER "$HOME/.cache/bazel"
-    sudo chown -R $USER:$USER .
-
-    # Build and start local testnet with error checking
+    # Let bazel handle its own workspace
     green_echo "[+] Building and starting local testnet..."
+    
+    # Ensure the user owns their home directory files
+    sudo chown -R $USER:$USER "$HOME/.cache" || true
+    
+    # Run the testnet script
     if ! bash ./scripts/local_testnet/start_local_testnet.sh; then
         green_echo "[!] Error: Failed to start local testnet"
-        green_echo "[!] Checking bazel output..."
-        
-        # Try to locate the actual tarball
-        TARBALL_PATH=$(find $HOME/.cache/bazel -name "tarball.tar" 2>/dev/null | grep "beacon-chain/oci_image_tarball" || true)
-        if [ -n "$TARBALL_PATH" ]; then
-            green_echo "[+] Found tarball at: $TARBALL_PATH"
-            # Create the target directory and copy the file
-            mkdir -p bazel-bin/cmd/beacon-chain/oci_image_tarball/
-            cp "$TARBALL_PATH" bazel-bin/cmd/beacon-chain/oci_image_tarball/
-            
-            green_echo "[+] Retrying local testnet startup..."
-            if ! bash ./scripts/local_testnet/start_local_testnet.sh; then
-                green_echo "[!] Error: Local testnet startup failed again"
-                green_echo "[!] Please check the following:"
-                green_echo "    1. Bazel cache: ls -la $HOME/.cache/bazel"
-                green_echo "    2. Docker status: docker ps"
-                green_echo "    3. Docker logs: docker logs <container_id>"
-                exit 1
-            fi
-        else
-            green_echo "[!] Error: Could not find built tarball"
-            green_echo "[!] Bazel output directories:"
-            find $HOME/.cache/bazel -type d -name "oci_image_tarball" 2>/dev/null || true
-            exit 1
-        fi
+        green_echo "[!] Please check:"
+        green_echo "    1. Docker status: docker ps"
+        green_echo "    2. Bazel version: bazel --version"
+        exit 1
     fi
 
     # Verify containers are running
@@ -269,4 +242,4 @@ green_echo "[+] Setup complete!"
 green_echo "[+] To add pre-mined coins or fund accounts at genesis:"
 green_echo "    1. Edit qrysm/scripts/local_testnet/network_params.yaml"
 green_echo "    2. Add your Zond address under prefunded_accounts"
-green_echo "    3. Restart the network using the start_local_testnet.sh script"
+green_echo "    3. Restart the network using the qrysm/scripts/local_testnet/start_local_testnet.sh script with -b false flag to avoid rebuilding qrysm"
