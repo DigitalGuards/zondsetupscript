@@ -4,6 +4,38 @@
 GREEN="\e[32m"
 RESET="\e[0m"
 
+# Session name for screen/tmux
+SESSION_NAME="zond-build"
+
+# Function to check if running in screen or tmux
+in_multiplexer() {
+    [[ -n "$STY" || -n "$TMUX" ]]
+}
+
+# Function to start in screen
+start_in_screen() {
+    if ! command -v screen &>/dev/null; then
+        sudo apt-get install -y screen
+    fi
+    # Start new screen session with our script
+    screen -dmS $SESSION_NAME bash -c "cd $(pwd) && ./testnetv1/zondsetup.sh --inside-screen"
+    green_echo "[+] Build started in screen session '$SESSION_NAME'"
+    green_echo "[+] To attach to the session, run: screen -r $SESSION_NAME"
+    exit 0
+}
+
+# Function to start in tmux
+start_in_tmux() {
+    if ! command -v tmux &>/dev/null; then
+        sudo apt-get install -y tmux
+    fi
+    # Start new tmux session with our script
+    tmux new-session -d -s $SESSION_NAME "cd $(pwd) && ./testnetv1/zondsetup.sh --inside-tmux"
+    green_echo "[+] Build started in tmux session '$SESSION_NAME'"
+    green_echo "[+] To attach to the session, run: tmux attach -t $SESSION_NAME"
+    exit 0
+}
+
 # Function to echo in green
 green_echo() {
     echo -e "${GREEN}$1${RESET}"
@@ -202,6 +234,63 @@ print_windows_instructions() {
     green_echo "5. Then run this script again inside the Ubuntu WSL environment"
     exit 1
 }
+
+# Parse command line arguments
+INSIDE_SCREEN=false
+INSIDE_TMUX=false
+USE_SCREEN=false
+USE_TMUX=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --screen)
+            USE_SCREEN=true
+            shift
+            ;;
+        --tmux)
+            USE_TMUX=true
+            shift
+            ;;
+        --inside-screen)
+            INSIDE_SCREEN=true
+            shift
+            ;;
+        --inside-tmux)
+            INSIDE_TMUX=true
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+# Check if we should start in a multiplexer
+if [[ "$USE_SCREEN" == "true" && "$INSIDE_SCREEN" == "false" ]]; then
+    start_in_screen
+elif [[ "$USE_TMUX" == "true" && "$INSIDE_TMUX" == "false" ]]; then
+    start_in_tmux
+fi
+
+# If we're not in a multiplexer and not explicitly running inside one, ask the user
+if ! in_multiplexer && [[ "$INSIDE_SCREEN" == "false" && "$INSIDE_TMUX" == "false" ]]; then
+    green_echo "[!] Running this script directly may be risky on smaller servers or unstable connections."
+    green_echo "[!] It's recommended to run it in screen or tmux to prevent build interruption."
+    echo
+    read -p "Do you want to run in screen or tmux? (s/t/n): " -n 1 -r
+    echo
+    case $REPLY in
+        s|S)
+            start_in_screen
+            ;;
+        t|T)
+            start_in_tmux
+            ;;
+        *)
+            green_echo "[!] Continuing without screen/tmux..."
+            ;;
+    esac
+fi
 
 # Main script execution
 green_echo "[+] Welcome to the Zond Testnet #BUIDL Preview Setup Script"

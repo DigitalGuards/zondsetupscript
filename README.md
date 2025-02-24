@@ -50,7 +50,14 @@ chmod +x testnetv1/zondsetup.sh
 
 3. Run the setup script:
 ```bash
+# Run directly (will prompt for screen/tmux usage)
 ./testnetv1/zondsetup.sh
+
+# Or run directly in screen
+./testnetv1/zondsetup.sh --screen
+
+# Or run directly in tmux
+./testnetv1/zondsetup.sh --tmux
 ```
 
 The script will:
@@ -62,6 +69,23 @@ The script will:
   - Other necessary tools
 - Clone and set up the Qrysm repository
 - Start the local testnet
+
+### Running on Small Servers
+
+When running on smaller servers or over unstable connections, it's recommended to use screen or tmux to prevent build interruption. The script will automatically:
+
+1. Detect if you're running in screen/tmux
+2. Prompt to start in screen/tmux if not
+3. Install screen/tmux if needed
+
+To attach to a running build:
+```bash
+# For screen
+screen -r zond-build
+
+# For tmux
+tmux attach -t zond-build
+```
 
 ## Post-Installation
 
