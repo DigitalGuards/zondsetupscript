@@ -137,7 +137,7 @@ install_prerequisites_macos() {
 # Function to setup local testnet
 setup_local_testnet() {
     green_echo "[+] Setting up local testnet..."
-
+    cd testnetv1
     # Clone qrysm repository
     if [ ! -d "qrysm" ]; then
         git clone https://github.com/theQRL/qrysm -b dev
@@ -155,6 +155,9 @@ setup_local_testnet() {
     green_echo "[+] Local testnet setup completed"
     green_echo "[+] To check mapped ports, use: docker ps --format '{{.Ports}}' | grep 8545 | sed 's/0.0.0.0://g'"
     green_echo "[+] To test the network, use: curl http://127.0.0.1:MAPPED_PORT/ -X POST -H \"Content-Type: application/json\" --data '{\"method\":\"zond_getBlockByNumber\",\"params\":[\"latest\", false],\"id\":1,\"jsonrpc\":\"2.0\"}' | jq -e"
+
+    # Return to original directory
+    cd ../..
 }
 
 # Print Windows WSL setup instructions if not in WSL
