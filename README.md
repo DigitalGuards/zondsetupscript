@@ -106,6 +106,20 @@ screen -r zond-build
 tmux attach -t zond-build
 ```
 
+### Logging
+
+All script output is automatically logged to a timestamped file in the `logs` directory:
+```
+logs/zondsetup_YYYYMMDD_HHMMSS.log
+```
+
+This ensures you have a complete record of the setup process, even when running in screen/tmux sessions that might be detached or closed. The log file path is displayed at the beginning and end of the script execution.
+
+To view the most recent log:
+```bash
+ls -t logs/ | head -1 | xargs cat logs/
+```
+
 ## Post-Installation
 
 ### Testing the Network

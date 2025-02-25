@@ -7,6 +7,24 @@ RESET="\e[0m"
 # Session name for screen/tmux
 SESSION_NAME="zond-build"
 
+# Setup logging
+LOG_DIR="logs"
+mkdir -p $LOG_DIR
+LOG_FILE="$LOG_DIR/zondsetup_$(date +%Y%m%d_%H%M%S).log"
+touch $LOG_FILE
+
+# Function to log messages
+log_message() {
+    echo "$(date +"%Y-%m-%d %H:%M:%S") - $1" | tee -a $LOG_FILE
+}
+
+# Function to echo in green and log
+green_echo() {
+    echo -e "${GREEN}$1${RESET}" | tee -a $LOG_FILE
+    # Also log without color codes for clean logs
+    echo "$(date +"%Y-%m-%d %H:%M:%S") - $1" >> $LOG_FILE
+}
+
 # Function to check if running in screen or tmux
 in_multiplexer() {
     [[ -n "$STY" || -n "$TMUX" ]]
@@ -17,10 +35,11 @@ start_in_screen() {
     if ! command -v screen &>/dev/null; then
         sudo apt-get install -y screen
     fi
-    # Start new screen session with our script
-    screen -dmS $SESSION_NAME bash -c "cd $(pwd) && ./testnetv1/zondsetup.sh --inside-screen"
+    # Start new screen session with our script and logging
+    screen -L -Logfile "$LOG_FILE" -dmS $SESSION_NAME bash -c "cd $(pwd) && ./testnetv1/zondsetup.sh --inside-screen"
     green_echo "[+] Build started in screen session '$SESSION_NAME'"
     green_echo "[+] To attach to the session, run: screen -r $SESSION_NAME"
+    green_echo "[+] All output is being logged to: $LOG_FILE"
     exit 0
 }
 
@@ -29,16 +48,12 @@ start_in_tmux() {
     if ! command -v tmux &>/dev/null; then
         sudo apt-get install -y tmux
     fi
-    # Start new tmux session with our script
-    tmux new-session -d -s $SESSION_NAME "cd $(pwd) && ./testnetv1/zondsetup.sh --inside-tmux"
+    # Start new tmux session with our script and logging
+    tmux new-session -d -s $SESSION_NAME "cd $(pwd) && ./testnetv1/zondsetup.sh --inside-tmux 2>&1 | tee -a $LOG_FILE"
     green_echo "[+] Build started in tmux session '$SESSION_NAME'"
     green_echo "[+] To attach to the session, run: tmux attach -t $SESSION_NAME"
+    green_echo "[+] All output is being logged to: $LOG_FILE"
     exit 0
-}
-
-# Function to echo in green
-green_echo() {
-    echo -e "${GREEN}$1${RESET}"
 }
 
 # Function to detect OS
@@ -321,6 +336,7 @@ fi
 
 # Main script execution
 green_echo "[+] Welcome to the Zond Testnet #BUIDL Preview Setup Script"
+green_echo "[+] Log file: $LOG_FILE"
 
 # Detect OS
 OS_TYPE=$(detect_os)
@@ -364,4 +380,6 @@ green_echo "[+] To view all running services:"
 green_echo "    kurtosis enclave inspect local-testnet"
 green_echo ""
 green_echo "[+] To view the logs:"
-green_echo "    kurtosis service logs -f local-testnet or $SERVICE_NAME"
+green_echo "    kurtosis service logs -f local-testnet or \$SERVICE_NAME"
+green_echo ""
+green_echo "[+] Complete setup log is available at: $LOG_FILE"
