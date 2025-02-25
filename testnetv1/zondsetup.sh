@@ -8,21 +8,23 @@ RESET="\e[0m"
 SESSION_NAME="zond-build"
 
 # Setup logging
-LOG_DIR="logs"
-mkdir -p $LOG_DIR
+LOG_DIR="$(pwd)/logs"
+mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/zondsetup_$(date +%Y%m%d_%H%M%S).log"
-touch $LOG_FILE
+touch "$LOG_FILE"
 
 # Function to log messages
 log_message() {
-    echo "$(date +"%Y-%m-%d %H:%M:%S") - $1" | tee -a $LOG_FILE
+    mkdir -p "$LOG_DIR"  # Ensure directory exists
+    echo "$(date +"%Y-%m-%d %H:%M:%S") - $1" | tee -a "$LOG_FILE"
 }
 
 # Function to echo in green and log
 green_echo() {
-    echo -e "${GREEN}$1${RESET}" | tee -a $LOG_FILE
+    mkdir -p "$LOG_DIR"  # Ensure directory exists
+    echo -e "${GREEN}$1${RESET}" | tee -a "$LOG_FILE"
     # Also log without color codes for clean logs
-    echo "$(date +"%Y-%m-%d %H:%M:%S") - $1" >> $LOG_FILE
+    echo "$(date +"%Y-%m-%d %H:%M:%S") - $1" >> "$LOG_FILE"
 }
 
 # Function to check if running in screen or tmux
@@ -35,6 +37,8 @@ start_in_screen() {
     if ! command -v screen &>/dev/null; then
         sudo apt-get install -y screen
     fi
+    # Create logs directory before starting screen
+    mkdir -p "$LOG_DIR"
     # Start new screen session with our script and logging
     screen -L -Logfile "$LOG_FILE" -dmS $SESSION_NAME bash -c "cd $(pwd) && ./testnetv1/zondsetup.sh --inside-screen"
     green_echo "[+] Build started in screen session '$SESSION_NAME'"
@@ -48,8 +52,10 @@ start_in_tmux() {
     if ! command -v tmux &>/dev/null; then
         sudo apt-get install -y tmux
     fi
+    # Create logs directory before starting tmux
+    mkdir -p "$LOG_DIR"
     # Start new tmux session with our script and logging
-    tmux new-session -d -s $SESSION_NAME "cd $(pwd) && ./testnetv1/zondsetup.sh --inside-tmux 2>&1 | tee -a $LOG_FILE"
+    tmux new-session -d -s $SESSION_NAME "cd $(pwd) && ./testnetv1/zondsetup.sh --inside-tmux 2>&1 | tee -a \"$LOG_FILE\""
     green_echo "[+] Build started in tmux session '$SESSION_NAME'"
     green_echo "[+] To attach to the session, run: tmux attach -t $SESSION_NAME"
     green_echo "[+] All output is being logged to: $LOG_FILE"
