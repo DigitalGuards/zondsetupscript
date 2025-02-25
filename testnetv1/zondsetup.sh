@@ -233,9 +233,6 @@ setup_local_testnet() {
     # Let bazel handle its own workspace
     green_echo "[+] Building and starting local testnet..."
     
-    # Ensure the user owns their home directory files
-    sudo chown -R $USER:$USER "$HOME/.cache" || true
-    
     # Run the testnet script
     if ! bash ./scripts/local_testnet/start_local_testnet.sh; then
         green_echo "[!] Error: Failed to start local testnet"
