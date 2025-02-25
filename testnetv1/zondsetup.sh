@@ -7,11 +7,15 @@ RESET="\e[0m"
 # Session name for screen/tmux
 SESSION_NAME="zond-build"
 
-# Setup logging
+# Setup logging directory
 LOG_DIR="$(pwd)/logs"
 mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/zondsetup_$(date +%Y%m%d_%H%M%S).log"
-touch "$LOG_FILE"
+
+# Initialize LOG_FILE only if not already set
+if [[ -z "$LOG_FILE" ]]; then
+    LOG_FILE="$LOG_DIR/zondsetup_$(date +%Y%m%d_%H%M%S).log"
+    touch "$LOG_FILE"
+fi
 
 # Function to log messages
 log_message() {
@@ -40,7 +44,7 @@ start_in_screen() {
     # Create logs directory before starting screen
     mkdir -p "$LOG_DIR"
     # Start new screen session with our script and logging, passing the log file path
-    screen -L -Logfile "$LOG_FILE" -dmS $SESSION_NAME bash -c "cd $(pwd) && LOG_FILE=\"$LOG_FILE\" LOG_FILE_PASSED=true ./testnetv1/zondsetup.sh --inside-screen"
+    screen -L -Logfile "$LOG_FILE" -dmS $SESSION_NAME bash -c "cd $(pwd) && LOG_FILE=\"$LOG_FILE\" INSIDE_MULTIPLEXER=true ./testnetv1/zondsetup.sh --inside-screen"
     green_echo "[+] Build started in screen session '$SESSION_NAME'"
     green_echo "[+] To attach to the session, run: screen -r $SESSION_NAME"
     green_echo "[+] All output is being logged to: $LOG_FILE"
@@ -55,7 +59,7 @@ start_in_tmux() {
     # Create logs directory before starting tmux
     mkdir -p "$LOG_DIR"
     # Start new tmux session with our script and logging, passing the log file path
-    tmux new-session -d -s $SESSION_NAME "cd $(pwd) && LOG_FILE=\"$LOG_FILE\" LOG_FILE_PASSED=true ./testnetv1/zondsetup.sh --inside-tmux 2>&1 | tee -a \"$LOG_FILE\""
+    tmux new-session -d -s $SESSION_NAME "cd $(pwd) && LOG_FILE=\"$LOG_FILE\" INSIDE_MULTIPLEXER=true ./testnetv1/zondsetup.sh --inside-tmux 2>&1 | tee -a \"$LOG_FILE\""
     green_echo "[+] Build started in tmux session '$SESSION_NAME'"
     green_echo "[+] To attach to the session, run: tmux attach -t $SESSION_NAME"
     green_echo "[+] All output is being logged to: $LOG_FILE"
@@ -338,16 +342,14 @@ if ! in_multiplexer && [[ "$INSIDE_SCREEN" == "false" && "$INSIDE_TMUX" == "fals
 fi
 
 # Main script execution
-# Check if LOG_FILE is already set (passed from parent process)
-if [[ -z "${LOG_FILE_PASSED:-}" ]]; then
+if [[ -n "$INSIDE_MULTIPLEXER" ]]; then
+    # We're running inside screen/tmux with a passed LOG_FILE
+    green_echo "[+] Continuing Zond Testnet #BUIDL Preview Setup in multiplexer"
+    green_echo "[+] Using log file: $LOG_FILE"
+else
     # This is the first run of the script
-    export LOG_FILE_PASSED=true
     green_echo "[+] Welcome to the Zond Testnet #BUIDL Preview Setup Script"
     green_echo "[+] Log file: $LOG_FILE"
-else
-    # We're running inside screen/tmux, so don't create a new log file
-    green_echo "[+] Continuing Zond Testnet #BUIDL Preview Setup in multiplexer"
-    green_echo "[+] Using existing log file: $LOG_FILE"
 fi
 
 # Detect OS
