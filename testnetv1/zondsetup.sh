@@ -269,34 +269,43 @@ setup_local_testnet() {
         sudo snap connect docker:home 2>/dev/null || true
     fi
     
-    # Run the testnet script with output capture
-    if ! bash ./scripts/local_testnet/start_local_testnet.sh 2>&1 | tee /tmp/testnet_output.log; then
-        # Check if the error was permission denied
-        if grep -q "permission denied" /tmp/testnet_output.log; then
-            green_echo "[!] Permission denied error detected. Attempting to fix..."
-            
-            # Fix permissions for bazel-bin
-            green_echo "[+] Fixing bazel-bin permissions..."
-            find bazel-bin -type f -exec chmod a+r {} \; 2>/dev/null || true
-            find bazel-bin -type d -exec chmod a+rx {} \; 2>/dev/null || true
-            
-            # Retry the script
-            green_echo "[+] Retrying testnet startup..."
-            if ! bash ./scripts/local_testnet/start_local_testnet.sh; then
-                green_echo "[!] Still failing. Please run these commands manually:"
-                green_echo "    cd $(pwd)"
-                green_echo "    sudo chmod -R a+r bazel-bin/"
-                green_echo "    bash ./scripts/local_testnet/start_local_testnet.sh"
-                exit 1
-            fi
-        else
-            green_echo "[!] Error: Failed to start local testnet"
-            green_echo "[!] Please check:"
-            green_echo "    1. Docker status: docker ps"
-            green_echo "    2. Bazel version: bazel --version"
-            exit 1
-        fi
+    # Create a wrapper to handle the permission issue
+    cat > testnet_wrapper.sh << 'EOF'
+#!/bin/bash
+# Run the original script and capture both stdout and stderr
+OUTPUT=$(bash ./scripts/local_testnet/start_local_testnet.sh 2>&1)
+EXIT_CODE=$?
+echo "$OUTPUT"
+
+# Check if permission denied occurred
+if echo "$OUTPUT" | grep -q "permission denied.*bazel-bin"; then
+    echo "[!] Permission denied error detected. Fixing permissions..."
+    find bazel-bin -type f -exec chmod a+r {} \; 2>/dev/null || true
+    find bazel-bin -type d -exec chmod a+rx {} \; 2>/dev/null || true
+    echo "[+] Retrying with fixed permissions..."
+    bash ./scripts/local_testnet/start_local_testnet.sh
+    EXIT_CODE=$?
+fi
+
+exit $EXIT_CODE
+EOF
+    chmod +x testnet_wrapper.sh
+    
+    # Run the wrapper script
+    if ! ./testnet_wrapper.sh; then
+        green_echo "[!] Error: Failed to start local testnet"
+        green_echo "[!] If you see permission errors, try:"
+        green_echo "    cd $(pwd)"
+        green_echo "    sudo chmod -R a+r bazel-bin/"
+        green_echo "    bash ./scripts/local_testnet/start_local_testnet.sh"
+        green_echo "[!] Please check:"
+        green_echo "    1. Docker status: docker ps"
+        green_echo "    2. Bazel version: bazel --version"
+        exit 1
     fi
+    
+    # Clean up
+    rm -f testnet_wrapper.sh
 
     # Verify containers are running
     if [ "$(docker ps -q)" == "" ]; then
