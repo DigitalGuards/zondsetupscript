@@ -121,6 +121,10 @@ setup_wsl_prerequisites() {
     sudo usermod -aG docker $USER
     sudo usermod -aG docker root
     sudo chown root:docker /var/run/docker.sock
+    
+    # For snap-installed Docker, we need to connect the home interface
+    green_echo "[+] Connecting snap docker to home directory..."
+    sudo snap connect docker:home || true
 
     green_echo "[+] WSL prerequisites setup completed"
     green_echo "[!] NOTE: You may need to restart your WSL instance for docker permissions to take effect"
@@ -143,6 +147,10 @@ install_prerequisites_ubuntu() {
         sudo usermod -aG docker $USER
         sudo usermod -aG docker root
         sudo chown root:docker /var/run/docker.sock
+        
+        # For snap-installed Docker, we need to connect the home interface
+        green_echo "[+] Connecting snap docker to home directory..."
+        sudo snap connect docker:home || true
     fi
 
     # Install Bazel
