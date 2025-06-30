@@ -256,23 +256,38 @@ setup_local_testnet() {
         green_echo "[!] Consider running: sudo usermod -aG docker $USER && newgrp docker"
     fi
     
-    # Run the testnet script - if it fails with permission error, suggest running with proper permissions
+    # Run the testnet script - if it fails with permission error, try to fix it automatically
     if ! bash ./scripts/local_testnet/start_local_testnet.sh 2>&1 | tee /tmp/testnet_output.log; then
-        if grep -q "permission denied" /tmp/testnet_output.log; then
-            green_echo "[!] Permission denied error detected."
-            green_echo "[!] This usually happens when Docker cannot access the bazel-built files."
-            green_echo "[!] Please try one of the following:"
-            green_echo "    1. Run: sudo chown -R $USER:docker bazel-bin/"
-            green_echo "    2. Run: sudo chmod -R a+r bazel-bin/"
-            green_echo "    3. Ensure you're in the docker group: sudo usermod -aG docker $USER && newgrp docker"
-            green_echo "    4. If using snap docker, try: sudo snap connect docker:home"
+        if grep -q "permission denied" /tmp/testnet_output.log && grep -q "bazel-bin" /tmp/testnet_output.log; then
+            green_echo "[!] Permission denied error detected. Attempting to fix..."
+            
+            # Try to fix permissions automatically
+            green_echo "[+] Fixing bazel-bin permissions..."
+            find bazel-bin -type f -name "*.tar" -exec chmod a+r {} \; 2>/dev/null || true
+            find bazel-bin -type d -exec chmod a+rx {} \; 2>/dev/null || true
+            
+            # If using snap docker, ensure home connection
+            if which docker 2>/dev/null | grep -q snap; then
+                green_echo "[+] Detected snap Docker, ensuring home directory access..."
+                sudo snap connect docker:home 2>/dev/null || true
+            fi
+            
+            # Retry the script
+            green_echo "[+] Retrying testnet startup..."
+            if ! bash ./scripts/local_testnet/start_local_testnet.sh; then
+                green_echo "[!] Still failing. Please run these commands manually:"
+                green_echo "    cd $(pwd)"
+                green_echo "    sudo chmod -R a+r bazel-bin/"
+                green_echo "    bash ./scripts/local_testnet/start_local_testnet.sh"
+                exit 1
+            fi
         else
             green_echo "[!] Error: Failed to start local testnet"
             green_echo "[!] Please check:"
             green_echo "    1. Docker status: docker ps"
             green_echo "    2. Bazel version: bazel --version"
+            exit 1
         fi
-        exit 1
     fi
 
     # Verify containers are running
