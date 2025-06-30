@@ -237,22 +237,30 @@ setup_local_testnet() {
     # Let bazel handle its own workspace
     green_echo "[+] Building and starting local testnet..."
     
-    # Set umask to ensure files are readable
-    ORIGINAL_UMASK=$(umask)
-    umask 0022
-    
-    # Run the testnet script
-    if ! bash ./scripts/local_testnet/start_local_testnet.sh; then
-        green_echo "[!] Error: Failed to start local testnet"
-        green_echo "[!] Please check:"
-        green_echo "    1. Docker status: docker ps"
-        green_echo "    2. Bazel version: bazel --version"
-        umask $ORIGINAL_UMASK
-        exit 1
+    # Check if user is in docker group
+    if ! groups | grep -q docker; then
+        green_echo "[!] Warning: User is not in docker group. This may cause permission issues."
+        green_echo "[!] Consider running: sudo usermod -aG docker $USER && newgrp docker"
     fi
     
-    # Restore original umask
-    umask $ORIGINAL_UMASK
+    # Run the testnet script - if it fails with permission error, suggest running with proper permissions
+    if ! bash ./scripts/local_testnet/start_local_testnet.sh 2>&1 | tee /tmp/testnet_output.log; then
+        if grep -q "permission denied" /tmp/testnet_output.log; then
+            green_echo "[!] Permission denied error detected."
+            green_echo "[!] This usually happens when Docker cannot access the bazel-built files."
+            green_echo "[!] Please try one of the following:"
+            green_echo "    1. Run: sudo chown -R $USER:docker bazel-bin/"
+            green_echo "    2. Run: sudo chmod -R a+r bazel-bin/"
+            green_echo "    3. Ensure you're in the docker group: sudo usermod -aG docker $USER && newgrp docker"
+            green_echo "    4. If using snap docker, try: sudo snap connect docker:home"
+        else
+            green_echo "[!] Error: Failed to start local testnet"
+            green_echo "[!] Please check:"
+            green_echo "    1. Docker status: docker ps"
+            green_echo "    2. Bazel version: bazel --version"
+        fi
+        exit 1
+    fi
 
     # Verify containers are running
     if [ "$(docker ps -q)" == "" ]; then
