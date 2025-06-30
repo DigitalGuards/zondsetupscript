@@ -237,11 +237,9 @@ setup_local_testnet() {
     # Let bazel handle its own workspace
     green_echo "[+] Building and starting local testnet..."
     
-    # Fix permissions for bazel-bin directory before running testnet script
-    if [ -d "bazel-bin" ]; then
-        green_echo "[+] Fixing permissions for bazel-bin directory..."
-        chmod -R +r bazel-bin/ 2>/dev/null || true
-    fi
+    # Set umask to ensure files are readable
+    ORIGINAL_UMASK=$(umask)
+    umask 0022
     
     # Run the testnet script
     if ! bash ./scripts/local_testnet/start_local_testnet.sh; then
@@ -249,8 +247,12 @@ setup_local_testnet() {
         green_echo "[!] Please check:"
         green_echo "    1. Docker status: docker ps"
         green_echo "    2. Bazel version: bazel --version"
+        umask $ORIGINAL_UMASK
         exit 1
     fi
+    
+    # Restore original umask
+    umask $ORIGINAL_UMASK
 
     # Verify containers are running
     if [ "$(docker ps -q)" == "" ]; then
