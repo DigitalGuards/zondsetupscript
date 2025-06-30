@@ -256,21 +256,29 @@ setup_local_testnet() {
         green_echo "[!] Consider running: sudo usermod -aG docker $USER && newgrp docker"
     fi
     
-    # Run the testnet script - if it fails with permission error, try to fix it automatically
+    # Proactively fix permissions for bazel-bin if it exists
+    if [ -d "bazel-bin" ]; then
+        green_echo "[+] Ensuring bazel-bin has proper permissions..."
+        find bazel-bin -type f -name "*.tar" -exec chmod a+r {} \; 2>/dev/null || true
+        find bazel-bin -type d -exec chmod a+rx {} \; 2>/dev/null || true
+    fi
+    
+    # If using snap docker, ensure home connection
+    if which docker 2>/dev/null | grep -q snap; then
+        green_echo "[+] Ensuring snap Docker has home directory access..."
+        sudo snap connect docker:home 2>/dev/null || true
+    fi
+    
+    # Run the testnet script with output capture
     if ! bash ./scripts/local_testnet/start_local_testnet.sh 2>&1 | tee /tmp/testnet_output.log; then
-        if grep -q "permission denied" /tmp/testnet_output.log && grep -q "bazel-bin" /tmp/testnet_output.log; then
+        # Check if the error was permission denied
+        if grep -q "permission denied" /tmp/testnet_output.log; then
             green_echo "[!] Permission denied error detected. Attempting to fix..."
             
-            # Try to fix permissions automatically
+            # Fix permissions for bazel-bin
             green_echo "[+] Fixing bazel-bin permissions..."
-            find bazel-bin -type f -name "*.tar" -exec chmod a+r {} \; 2>/dev/null || true
+            find bazel-bin -type f -exec chmod a+r {} \; 2>/dev/null || true
             find bazel-bin -type d -exec chmod a+rx {} \; 2>/dev/null || true
-            
-            # If using snap docker, ensure home connection
-            if which docker 2>/dev/null | grep -q snap; then
-                green_echo "[+] Detected snap Docker, ensuring home directory access..."
-                sudo snap connect docker:home 2>/dev/null || true
-            fi
             
             # Retry the script
             green_echo "[+] Retrying testnet startup..."
