@@ -175,19 +175,10 @@ install_prerequisites_ubuntu() {
         exit 1
     fi
 
-    # Install Kurtosis using the official installation script
-    green_echo "[+] Installing Kurtosis..."
-    if ! command -v kurtosis &>/dev/null; then
-        curl -s https://get.kurtosis.com | bash
-        # Add kurtosis to PATH for current session
-        export PATH="$HOME/.kurtosis/bin:$PATH"
-        # Add to .bashrc for future sessions
-        if ! grep -q "kurtosis/bin" ~/.bashrc; then
-            echo 'export PATH="$HOME/.kurtosis/bin:$PATH"' >> ~/.bashrc
-        fi
-    else
-        green_echo "[+] Kurtosis already installed"
-    fi
+    # Install Kurtosis
+    echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
+    sudo apt update
+    sudo apt install -y kurtosis-cli
 
     green_echo "[+] Prerequisites installation completed"
 }
@@ -199,10 +190,15 @@ install_prerequisites_macos() {
     # Install prerequisites using brew
     brew install bazel@7 kurtosis-tech/tap/kurtosis-cli jq yq
 
-    # Add bazel to PATH
-    if ! grep -q "bazel@7/bin" ~/.zshrc; then
-        echo 'export PATH="/opt/homebrew/opt/bazel@7/bin:$PATH"' >> ~/.zshrc
-        source ~/.zshrc
+    # Detect shell and add bazel to PATH
+    SHELL_RC="$HOME/.zshrc"
+    if [[ "$SHELL" == *"bash"* ]]; then
+        SHELL_RC="$HOME/.bashrc"
+    fi
+    
+    if ! grep -q "bazel@7/bin" "$SHELL_RC"; then
+        echo 'export PATH="/opt/homebrew/opt/bazel@7/bin:$PATH"' >> "$SHELL_RC"
+        source "$SHELL_RC"
     fi
 
     green_echo "[+] Prerequisites installation completed for MacOS"
