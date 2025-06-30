@@ -113,18 +113,36 @@ setup_wsl_prerequisites() {
     # Install build essentials
     sudo apt-get update && sudo apt-get install -y build-essential
     
-    # Install Docker and yq
-    sudo snap install docker yq
+    # Install Docker from official repository for WSL
+    green_echo "[+] Installing Docker from official repository..."
+    
+    # Remove snap docker if installed
+    sudo snap remove docker 2>/dev/null || true
+    
+    # Install Docker from official repo
+    sudo apt-get update
+    sudo apt-get install -y ca-certificates curl gnupg
+    sudo install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+    
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+      
+    sudo apt-get update
+    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    
+    # Install yq separately
+    sudo snap install yq
     
     # Setup docker permissions
-    sudo addgroup docker 2>/dev/null || true
+    sudo groupadd docker 2>/dev/null || true
     sudo usermod -aG docker $USER
-    sudo usermod -aG docker root
-    sudo chown root:docker /var/run/docker.sock
     
-    # For snap-installed Docker, we need to connect the home interface
-    green_echo "[+] Connecting snap docker to home directory..."
-    sudo snap connect docker:home || true
+    # Start Docker service
+    sudo service docker start || true
 
     green_echo "[+] WSL prerequisites setup completed"
     green_echo "[!] NOTE: You may need to restart your WSL instance for docker permissions to take effect"
@@ -139,18 +157,39 @@ install_prerequisites_ubuntu() {
     if [[ "$1" == "wsl" ]]; then
         setup_wsl_prerequisites
     else
-        # Install Docker and yq for native Ubuntu
-        sudo snap install docker yq
+        # Install Docker using official Docker repository (not snap)
+        green_echo "[+] Installing Docker from official repository..."
         
-        # Setup docker permissions for native Ubuntu
-        sudo addgroup docker 2>/dev/null || true
+        # Remove snap docker if installed
+        sudo snap remove docker 2>/dev/null || true
+        
+        # Install Docker from official repo
+        sudo apt-get update
+        sudo apt-get install -y ca-certificates curl gnupg
+        sudo install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        sudo chmod a+r /etc/apt/keyrings/docker.gpg
+        
+        echo \
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+          $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+          sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          
+        sudo apt-get update
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        
+        # Install yq separately
+        sudo snap install yq
+        
+        # Setup docker permissions
+        sudo groupadd docker 2>/dev/null || true
         sudo usermod -aG docker $USER
-        sudo usermod -aG docker root
-        sudo chown root:docker /var/run/docker.sock
         
-        # For snap-installed Docker, we need to connect the home interface
-        green_echo "[+] Connecting snap docker to home directory..."
-        sudo snap connect docker:home || true
+        # Start Docker service
+        sudo systemctl start docker
+        sudo systemctl enable docker
+        
+        green_echo "[!] NOTE: You may need to log out and back in for docker group membership to take effect"
     fi
 
     # Install Bazel
@@ -263,10 +302,11 @@ setup_local_testnet() {
         find bazel-bin -type d -exec chmod a+rx {} \; 2>/dev/null || true
     fi
     
-    # If using snap docker, ensure home connection
-    if which docker 2>/dev/null | grep -q snap; then
-        green_echo "[+] Ensuring snap Docker has home directory access..."
-        sudo snap connect docker:home 2>/dev/null || true
+    # Check Docker is running
+    if ! docker ps &>/dev/null; then
+        green_echo "[!] Docker is not running. Starting Docker service..."
+        sudo systemctl start docker || sudo service docker start || true
+        sleep 2
     fi
     
     # First attempt - run the script
